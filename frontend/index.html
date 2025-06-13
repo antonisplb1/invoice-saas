@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoicing Tool SaaS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" style="display: none;">
+        <h2>Login</h2>
+        <form id="login-form">
+            <label>Email:
+                <input type="email" name="email" required>
+            </label>
+            <label>Password:
+                <input type="password" name="password" required>
+            </label>
+            <button type="submit">Login</button>
+        </form>
+        <p id="login-error" style="color: red;"></p>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" style="display: none;">
+        <div class="sidebar">
+            <h2>Invoicing Tool SaaS</h2>
+            <button id="create-invoice-btn">➕ Create Invoice</button>
+            <button id="all-invoices-btn">📋 All Invoices</button>
+            <button id="customers-btn">👤 Customers</button>
+            <button id="stripe-dashboard-btn">📊 Stripe Dashboard</button>
+            <button id="stripe-connect-btn">💳 Stripe Connect</button>
+            <button id="logout-btn">🚪 Logout</button>
+        </div>
+        <div class="main-content" id="main-content">
+            <h3>Create Invoice</h3>
+
+            <form id="invoice-form" style="display: none;">
+                <div class="form-group">
+                    <label for="customer_first_name">Customer First Name:</label>
+                    <input type="text" id="customer_first_name" name="customer_first_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customer_last_name">Customer Last Name:</label>
+                    <input type="text" id="customer_last_name" name="customer_last_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customer_email">Customer Email:</label>
+                    <input type="email" id="customer_email" name="customer_email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">Amount:</label>
+                    <input type="number" id="amount" name="amount" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="issue_date">Issue Date:</label>
+                    <input type="date" id="issue_date" name="issue_date" required>
+                </div>
+
+                <div class="form-group-inline">
+                    <input type="checkbox" id="is_recurring" name="is_recurring">
+                    <label for="is_recurring">Is Recurring</label>
+                </div>
+
+                <div class="form-group">
+                    <label for="frequency">Frequency:</label>
+                    <select id="frequency" name="frequency">
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="recurring_amount">Recurring Amount:</label>
+                    <input type="number" id="recurring_amount" name="recurring_amount">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" name="notes"></textarea>
+                </div>
+
+                <button type="submit">Create Invoice</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
