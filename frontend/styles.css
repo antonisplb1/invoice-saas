@@ -21,6 +21,7 @@
     --color-sidebar-bg: #1e293b;
     --color-sidebar-link: #cbd5e1;
     --color-sidebar-hover: #334155;
+    --color-sidebar-active-bg: var(--color-primary);
     
     --color-success: #28a745;
     --color-danger: #dc3545;
@@ -127,6 +128,7 @@ body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    gap: 0.75rem;
     transition: var(--transition-fast);
 }
 
@@ -134,7 +136,7 @@ body {
     font-size: 1.5rem;
     font-weight: 600;
     color: #fff;
-    margin: 0.5rem 0 2rem 0;
+    margin: 0.5rem 0 1.5rem 0;
     text-align: center;
 }
 
@@ -210,59 +212,15 @@ body {
     resize: vertical;
 }
 
+.main-content form input[type="checkbox"],
+.main-content form input[type="radio"] {
+    accent-color: var(--color-primary);
+    width: auto;
+    margin-right: 0.5rem;
+}
+
 
 /* 6. TABLES & SEARCH */
-
-/* New container for search and filter controls */
-.controls-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.filter-controls {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    background-color: var(--color-bg-med);
-    padding: 0.5rem 1rem;
-    border-radius: var(--border-radius-md);
-}
-
-.filter-controls span {
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    font-size: 0.9rem;
-}
-
-.filter-controls label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
-
-.search-input {
-    width: auto;
-    min-width: 300px;
-    padding: 0.75rem 1rem;
-    border-radius: var(--border-radius-md);
-    border: 1px solid #ced4da;
-    font-size: 1rem;
-    transition: var(--transition-fast);
-    margin-bottom: 0; /* Removed margin as it's handled by gap */
-}
-
-.search-input:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
-    outline: none;
-}
-
 .table-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -297,19 +255,126 @@ th {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
+    position: relative;
+    cursor: default;
 }
 
 tr:hover {
     background-color: var(--color-bg-med);
 }
 
-/* Status & Highlight Colors */
-.status-paid { background-color: rgba(40, 167, 69, 0.1); }
-.status-canceled { background-color: var(--color-danger-light); }
-.status-due { background-color: rgba(255, 193, 7, 0.1); }
+td[class^="status-"] {
+    position: relative;
+    padding-left: 2.25rem;
+    text-transform: capitalize;
+}
+td[class^="status-"]::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+.status-paid::before { background-color: var(--color-success); }
+.status-due::before { background-color: var(--color-warning); }
+.status-canceled::before { background-color: var(--color-danger); }
 
 .customer-inactive {
     background-color: var(--color-danger-light) !important;
+    color: #9d525a;
+}
+.customer-inactive td {
+    color: #9d525a;
+}
+
+.filter-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    padding: 4px;
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition-fast);
+}
+.filter-icon:hover {
+    background-color: #dee2e6;
+    color: var(--color-text-primary);
+}
+.filter-icon.active {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    transform: scale(1.1);
+}
+
+.filter-menu {
+    display: none;
+    position: absolute;
+    background-color: var(--color-surface);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    min-width: 250px;
+    font-family: var(--font-primary);
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+}
+
+.filter-menu-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--color-bg-med);
+}
+.filter-menu-search input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: var(--border-radius-sm);
+    box-sizing: border-box;
+}
+
+.filter-menu-list {
+    max-height: 200px;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+}
+
+.filter-menu-item {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: none;
+    font-weight: 400;
+}
+.filter-menu-item:hover {
+    background-color: var(--color-bg-med);
+}
+
+.filter-menu-item label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}
+.filter-menu-item input[type="checkbox"] {
+    accent-color: var(--color-primary);
+}
+
+
+.filter-menu-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-bg-med);
 }
 
 /* 7. CUSTOM UI COMPONENTS */
@@ -429,90 +494,202 @@ td.actions-cell {
     margin-top: 1rem;
 }
 
-/* 8. UNIFIED BUTTON STYLES */
-.btn {
+
+/* 8. UNIFIED BUTTON STYLES (CORRECTED) */
+
+/* MASTER BUTTON STYLES
+   This block targets all buttons that need styling and gives them a unified size, font, and interactive "feel".
+   This includes buttons identified by ID from app.js and buttons that have the .btn class.
+*/
+#login-form button,
+.sidebar button,
+.modal-actions button,
+.actions-cell .btn,
+.main-content > form button,
+#clear-all-filters-btn,
+.filter-menu-actions button {
+    /* Core Layout & Font */
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-family: var(--font-primary);
-    font-weight: 600;
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.75rem 1.25rem;
+    line-height: 1.5;
     text-align: center;
     vertical-align: middle;
+    
+    /* Appearance & Interaction */
     cursor: pointer;
     user-select: none;
-    border: 1px solid transparent;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
     border-radius: var(--border-radius-md);
     transition: var(--transition-fast);
     text-decoration: none;
-}
-.btn:hover {
-    transform: translateY(-2px);
-}
-.btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    border: 1px solid #ced4da;
+    box-shadow: var(--shadow-sm);
 }
 
-.btn-primary {
-    color: #fff;
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-}
-.btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
+/* Hover & Active States for ALL buttons */
+#login-form button:hover,
+.sidebar button:hover,
+.modal-actions button:hover,
+.actions-cell .btn:hover,
+.main-content > form button:hover,
+#clear-all-filters-btn:hover,
+.filter-menu-actions button:hover {
+    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
-.btn-secondary {
-    color: var(--color-text-secondary);
+#login-form button:active,
+.sidebar button:active,
+.modal-actions button:active,
+.actions-cell .btn:active,
+.main-content > form button:active,
+#clear-all-filters-btn:active,
+.filter-menu-actions button:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Focus State for ALL buttons */
+#login-form button:focus-visible,
+.sidebar button:focus-visible,
+.modal-actions button:focus-visible,
+.actions-cell .btn:focus-visible,
+.main-content > form button:focus-visible,
+#clear-all-filters-btn:focus-visible,
+.filter-menu-actions button:focus-visible {
+    outline: 2px solid var(--color-primary-light);
+    outline-offset: 2px;
+}
+
+
+/* --- STYLE MODIFIERS (by ID and specific context) --- */
+
+/* Primary Button Styles (Blue) */
+#login-form button,
+#modal-confirm-btn,
+.main-content > form button[type="submit"],
+#filter-apply-btn {
+    color: #fff;
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    font-weight: 600;
+}
+#login-form button:hover,
+#modal-confirm-btn:hover,
+.main-content > form button[type="submit"]:hover,
+#filter-apply-btn:hover {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
+/* Secondary Button Styles (White) */
+.actions-cell .btn, /* This already works but we include it for completeness */
+#modal-cancel-btn,
+#clear-all-filters-btn,
+#filter-clear-btn {
+    color: var(--color-text-primary);
     background-color: var(--color-surface);
     border-color: #ced4da;
 }
-.btn-secondary:hover {
+.actions-cell .btn:hover,
+#modal-cancel-btn:hover,
+#clear-all-filters-btn:hover,
+#filter-clear-btn:hover {
     background-color: var(--color-bg-med);
     border-color: #adb5bd;
-    color: var(--color-text-primary);
 }
 
-.btn-ghost {
-    color: var(--color-text-secondary);
+
+/* Sidebar Button Styles */
+.sidebar button {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.75rem;
     background-color: transparent;
+    color: var(--color-sidebar-link);
     border-color: transparent;
+}
+.sidebar button:hover {
+    background-color: var(--color-sidebar-hover);
+    color: #fff;
+}
+.sidebar button.active { /* Target the .active class added by JS */
+    background-color: var(--color-sidebar-active-bg);
+    border-color: var(--color-sidebar-active-bg);
+    color: #fff;
+    font-weight: 600;
+}
+.sidebar button::before {
+    font-size: 1.2rem;
+    width: 20px;
+    text-align: center;
+    display: inline-block;
+    color: inherit;
+    transition: var(--transition-fast);
+}
+#all-invoices-btn::before { content: '🧾'; }
+#customers-btn::before { content: '👥'; }
+#create-invoice-btn::before { content: '➕'; }
+#stripe-connect-btn::before { content: '🔌'; }
+#stripe-dashboard-btn::before { content: '📊'; }
+#logout-btn::before { content: '🚪'; }
+
+
+/* Ghost Button (for status update menu) */
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    border: none;
+    background-color: transparent;
+    color: var(--color-text-secondary);
+    box-shadow: none;
+    padding: 0.5rem 1rem;
+    width: 100%;
+    justify-content: flex-start;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    font-family: var(--font-primary);
 }
 .btn-ghost:hover {
     background-color: var(--color-bg-med);
     color: var(--color-text-primary);
-    transform: none;
 }
 
-.btn-sidebar {
-    width: 100%;
-    justify-content: flex-start;
-    color: var(--color-sidebar-link);
-    background-color: transparent;
-    font-weight: 500;
-    padding: 0.875rem 1rem;
-}
-.btn-sidebar:hover {
-    background-color: var(--color-sidebar-hover);
-    color: #fff;
-    transform: translateX(5px);
-}
-
-.btn-sm {
+/* Small Button Modifier (for filter menu actions) */
+.filter-menu-actions button {
     padding: 0.375rem 0.75rem;
     font-size: 0.8rem;
-    font-weight: 500;
 }
 
-#login-screen form button,
-.main-content form button {
-    margin-top: 1rem;
+
+/* 9. GLOBAL LOADER */
+.loader-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    backdrop-filter: blur(4px);
+}
+.loader {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--color-bg-med);
+    border-top: 5px solid var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
-.modal-actions button {
-    padding: 0.625rem 1.25rem;
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

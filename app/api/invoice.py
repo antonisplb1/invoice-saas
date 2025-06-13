@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.invoice import Invoice
@@ -43,7 +43,6 @@ def create_invoice(
 
     if payload.get("is_recurring"):
         if existing_customer:
-            # 🚨 New logic: Check if existing customer has an active recurring invoice
             existing_recurring_invoice = (
                 db.query(Invoice)
                 .filter_by(
@@ -144,7 +143,6 @@ def create_invoice(
     db.commit()
     db.refresh(db_invoice)
 
-    # ─── Send Email Notification ─────────────────────────────────────────────
     subject = f"Your Invoice #{db_invoice.id} from {current_user.company_name}"
     content = f"""
     <html>
@@ -152,7 +150,7 @@ def create_invoice(
         <p>Dear {db_invoice.customer_first_name},</p>
         <p>You have a new invoice from {current_user.company_name}.</p>
         <p>Amount: ${db_invoice.amount}</p>
-        <p>Issue Date: {db_invoice.due_date}</p>
+        <p>Issue Date: {db_invoice.issue_date}</p>
         <p><a href="{db_invoice.payment_url}">Click here to pay your invoice</a></p>
     </body>
     </html>
@@ -160,6 +158,22 @@ def create_invoice(
     send_invoice_email(db_invoice.customer_email, subject, content)
 
     return db_invoice
+
+# THIS IS THE KEY MODIFIED FUNCTION
+@router.get("/all", response_model=List[InvoiceOut])
+def list_all_invoices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    status: str = Query(None, enum=["Paid", "Due", "canceled"])
+):
+    query = db.query(Invoice).filter(Invoice.merchant_id == current_user.id)
+
+    if status:
+        query = query.filter(Invoice.status == status)
+
+    all_invoices = query.order_by(Invoice.issue_date.desc()).all()
+    return all_invoices
+
 
 @router.patch("/cancel/{invoice_id}", response_model=InvoiceOut)
 def cancel_invoice(
@@ -245,18 +259,6 @@ def list_canceled_invoices(
         .all()
     )
     return canceled_invoices
-
-@router.get("/all", response_model=List[InvoiceOut])
-def list_all_invoices(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    all_invoices = (
-        db.query(Invoice)
-        .filter_by(merchant_id=current_user.id)
-        .all()
-    )
-    return all_invoices
 
 @router.patch("/{invoice_id}/status", response_model=InvoiceOut)
 def update_invoice_status(
