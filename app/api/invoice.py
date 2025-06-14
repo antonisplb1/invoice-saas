@@ -35,40 +35,48 @@ def create_invoice(
     payload = invoice.dict()
     payload["merchant_id"] = current_user.id
 
-    existing_customer = (
-        db.query(Customer)
-        .filter_by(email=payload["customer_email"], merchant_id=current_user.id)
-        .first()
-    )
+    # --- REVISED AND SIMPLIFIED CUSTOMER HANDLING ---
+    
+    # 1. Find an existing customer for the current merchant or prepare to create one.
+    customer = db.query(Customer).filter_by(
+        email=payload["customer_email"], 
+        merchant_id=current_user.id
+    ).first()
+
+    if not customer:
+        # If the customer does NOT exist for this merchant, create them now.
+        customer = Customer(
+            merchant_id=current_user.id,
+            first_name=payload["customer_first_name"],
+            last_name=payload["customer_last_name"],
+            email=payload["customer_email"]
+        )
+        db.add(customer)
+        # We commit here to generate the customer.id before creating the invoice
+        db.commit()
+        db.refresh(customer)
+    
+    # At this point, `customer` is guaranteed to be the correct customer record.
+    payload["customer_id"] = customer.id
+
+    # --- END OF REVISED CUSTOMER HANDLING ---
 
     if payload.get("is_recurring"):
-        if existing_customer:
-            existing_recurring_invoice = (
-                db.query(Invoice)
-                .filter_by(
-                    customer_id=existing_customer.id,
-                    merchant_id=current_user.id,
-                    is_recurring=True
-                )
-                .first()
-            )
-            if existing_recurring_invoice:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Customer with email {payload['customer_email']} already has a recurring invoice."
-                )
-            payload["customer_id"] = existing_customer.id
-        else:
-            new_customer = Customer(
+        # Check if this customer already has an active recurring invoice
+        existing_recurring_invoice = (
+            db.query(Invoice)
+            .filter_by(
+                customer_id=customer.id,
                 merchant_id=current_user.id,
-                first_name=payload["customer_first_name"],
-                last_name=payload["customer_last_name"],
-                email=payload["customer_email"]
+                is_recurring=True
             )
-            db.add(new_customer)
-            db.commit()
-            db.refresh(new_customer)
-            payload["customer_id"] = new_customer.id
+            .first()
+        )
+        if existing_recurring_invoice:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Customer with email {payload['customer_email']} already has an active recurring invoice."
+            )
 
         if payload.get("recurring_amount") is None:
             raise HTTPException(
@@ -87,29 +95,17 @@ def create_invoice(
                 detail="If is_recurring is true, frequency must be 'monthly' or 'yearly'."
             )
     else:
-        if existing_customer:
-            payload["customer_id"] = existing_customer.id
-        else:
-            new_customer = Customer(
-                merchant_id=current_user.id,
-                first_name=payload["customer_first_name"],
-                last_name=payload["customer_last_name"],
-                email=payload["customer_email"]
-            )
-            db.add(new_customer)
-            db.commit()
-            db.refresh(new_customer)
-            payload["customer_id"] = new_customer.id
-
         payload["recurring_amount"] = None
         payload["recurrence_start_date"] = None
         payload["original_invoice_id"] = None
 
+    # Create the invoice object using the now-complete payload
     db_invoice = Invoice(**payload)
     db.add(db_invoice)
     db.commit()
     db.refresh(db_invoice)
 
+    # --- The rest of your Stripe and Email logic remains the same ---
     base_domain = os.getenv("DOMAIN") or "http://localhost:8000"
     try:
         session = stripe.checkout.Session.create(
@@ -143,6 +139,7 @@ def create_invoice(
     db.commit()
     db.refresh(db_invoice)
 
+    # --- Send Email Notification ---
     subject = f"Your Invoice #{db_invoice.id} from {current_user.company_name}"
     content = f"""
     <html>

@@ -118,6 +118,7 @@ body {
     width: 100%;
     box-sizing: border-box;
     background-color: var(--color-surface);
+    position: relative; 
 }
 
 .sidebar {
@@ -129,7 +130,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    transition: var(--transition-fast);
+    transition: transform 0.3s ease-in-out;
+    flex-shrink: 0; 
 }
 
 .sidebar h2 {
@@ -150,6 +152,7 @@ body {
     background-color: var(--color-bg-light);
     overflow-y: auto;
     box-sizing: border-box;
+    position: relative;
 }
 
 /* 5. FORMS (inside main-content) */
@@ -284,7 +287,6 @@ td[class^="status-"]::before {
 
 .customer-inactive {
     background-color: var(--color-danger-light) !important;
-    color: #9d525a;
 }
 .customer-inactive td {
     color: #9d525a;
@@ -442,6 +444,7 @@ td.actions-cell {
     justify-content: center;
     z-index: 4000;
     padding: 1rem;
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -495,20 +498,15 @@ td.actions-cell {
 }
 
 
-/* 8. UNIFIED BUTTON STYLES (CORRECTED) */
-
-/* MASTER BUTTON STYLES
-   This block targets all buttons that need styling and gives them a unified size, font, and interactive "feel".
-   This includes buttons identified by ID from app.js and buttons that have the .btn class.
-*/
+/* 8. UNIFIED BUTTON STYLES */
 #login-form button,
 .sidebar button,
 .modal-actions button,
 .actions-cell .btn,
-.main-content > form button,
+.main-content form button,
 #clear-all-filters-btn,
-.filter-menu-actions button {
-    /* Core Layout & Font */
+.filter-menu-actions button,
+.mobile-menu-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -519,8 +517,6 @@ td.actions-cell {
     line-height: 1.5;
     text-align: center;
     vertical-align: middle;
-    
-    /* Appearance & Interaction */
     cursor: pointer;
     user-select: none;
     border-radius: var(--border-radius-md);
@@ -530,48 +526,44 @@ td.actions-cell {
     box-shadow: var(--shadow-sm);
 }
 
-/* Hover & Active States for ALL buttons */
 #login-form button:hover,
-.sidebar button:hover,
 .modal-actions button:hover,
 .actions-cell .btn:hover,
-.main-content > form button:hover,
+.main-content form button:hover,
 #clear-all-filters-btn:hover,
-.filter-menu-actions button:hover {
+.filter-menu-actions button:hover,
+.mobile-menu-toggle:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
 #login-form button:active,
-.sidebar button:active,
 .modal-actions button:active,
 .actions-cell .btn:active,
-.main-content > form button:active,
+.main-content form button:active,
 #clear-all-filters-btn:active,
-.filter-menu-actions button:active {
+.filter-menu-actions button:active,
+.mobile-menu-toggle:active {
     transform: translateY(0);
     box-shadow: var(--shadow-sm);
 }
 
-/* Focus State for ALL buttons */
 #login-form button:focus-visible,
 .sidebar button:focus-visible,
 .modal-actions button:focus-visible,
 .actions-cell .btn:focus-visible,
-.main-content > form button:focus-visible,
+.main-content form button:focus-visible,
 #clear-all-filters-btn:focus-visible,
-.filter-menu-actions button:focus-visible {
+.filter-menu-actions button:focus-visible,
+.mobile-menu-toggle:focus-visible {
     outline: 2px solid var(--color-primary-light);
     outline-offset: 2px;
 }
 
-
-/* --- STYLE MODIFIERS (by ID and specific context) --- */
-
-/* Primary Button Styles (Blue) */
+/* Primary Button Styles */
 #login-form button,
 #modal-confirm-btn,
-.main-content > form button[type="submit"],
+.main-content form button[type="submit"],
 #filter-apply-btn {
     color: #fff;
     background-color: var(--color-primary);
@@ -580,17 +572,18 @@ td.actions-cell {
 }
 #login-form button:hover,
 #modal-confirm-btn:hover,
-.main-content > form button[type="submit"]:hover,
+.main-content form button[type="submit"]:hover,
 #filter-apply-btn:hover {
     background-color: var(--color-primary-dark);
     border-color: var(--color-primary-dark);
 }
 
-/* Secondary Button Styles (White) */
-.actions-cell .btn, /* This already works but we include it for completeness */
+/* Secondary Button Styles */
+.actions-cell .btn,
 #modal-cancel-btn,
 #clear-all-filters-btn,
-#filter-clear-btn {
+#filter-clear-btn,
+.mobile-menu-toggle {
     color: var(--color-text-primary);
     background-color: var(--color-surface);
     border-color: #ced4da;
@@ -598,11 +591,11 @@ td.actions-cell {
 .actions-cell .btn:hover,
 #modal-cancel-btn:hover,
 #clear-all-filters-btn:hover,
-#filter-clear-btn:hover {
+#filter-clear-btn:hover,
+.mobile-menu-toggle:hover {
     background-color: var(--color-bg-med);
     border-color: #adb5bd;
 }
-
 
 /* Sidebar Button Styles */
 .sidebar button {
@@ -612,34 +605,22 @@ td.actions-cell {
     background-color: transparent;
     color: var(--color-sidebar-link);
     border-color: transparent;
+    box-shadow: none;
 }
 .sidebar button:hover {
     background-color: var(--color-sidebar-hover);
     color: #fff;
+    transform: translateY(0);
+    box-shadow: none;
 }
-.sidebar button.active { /* Target the .active class added by JS */
+.sidebar button.active {
     background-color: var(--color-sidebar-active-bg);
     border-color: var(--color-sidebar-active-bg);
     color: #fff;
     font-weight: 600;
 }
-.sidebar button::before {
-    font-size: 1.2rem;
-    width: 20px;
-    text-align: center;
-    display: inline-block;
-    color: inherit;
-    transition: var(--transition-fast);
-}
-#all-invoices-btn::before { content: '🧾'; }
-#customers-btn::before { content: '👥'; }
-#create-invoice-btn::before { content: '➕'; }
-#stripe-connect-btn::before { content: '🔌'; }
-#stripe-dashboard-btn::before { content: '📊'; }
-#logout-btn::before { content: '🚪'; }
 
-
-/* Ghost Button (for status update menu) */
+/* Ghost Button */
 .btn-ghost {
     display: inline-flex;
     align-items: center;
@@ -659,7 +640,7 @@ td.actions-cell {
     color: var(--color-text-primary);
 }
 
-/* Small Button Modifier (for filter menu actions) */
+/* Small Button Modifier */
 .filter-menu-actions button {
     padding: 0.375rem 0.75rem;
     font-size: 0.8rem;
@@ -692,4 +673,120 @@ td.actions-cell {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/******************************************/
+/* 10. MOBILE RESPONSIVE STYLES           */
+/******************************************/
+
+.mobile-menu-toggle {
+    display: none; 
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1500;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 1.5rem;
+}
+
+@media (max-width: 992px) {
+    body {
+        display: block;
+        align-items: initial;
+        justify-content: initial;
+    }
+
+    #app {
+        min-height: 100vh;
+        height: auto;
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+        z-index: 1000;
+        transform: translateX(-100%);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .sidebar.is-open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        padding: 2rem 1.5rem;
+        padding-top: 5rem; 
+    }
+    
+    .main-content form {
+        padding: 1.5rem;
+    }
+
+    .mobile-menu-toggle {
+        display: inline-flex;
+    }
+
+    th, td {
+        padding: 0.75rem 1rem;
+    }
+    
+    td[class^="status-"] {
+        padding-left: 2rem;
+    }
+    
+    td[class^="status-"]::before {
+        left: 0.75rem;
+    }
+
+    #toast-container {
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        width: auto;
+        box-sizing: border-box;
+    }
+
+    .toast {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 576px) {
+    body {
+        font-size: 15px;
+    }
+
+    #login-screen {
+        padding: 1rem;
+    }
+    
+    #login-screen form {
+        padding: 1.5rem;
+    }
+
+    .main-content {
+        padding: 1.5rem 1rem;
+        padding-top: 5rem;
+    }
+
+    .main-content h3, #login-screen h2 {
+        font-size: 1.5rem;
+    }
+
+    .modal-container {
+        padding: 0.5rem;
+    }
+
+    .modal-content {
+        padding: 1.5rem;
+    }
+
+    td.actions-cell {
+        flex-wrap: wrap; 
+    }
 }

@@ -3,7 +3,7 @@ const API_BASE_URL = "http://localhost:8000"; // adjust if needed
 // --- Global State for Filtering ---
 let activeFilters = {};
 let allInvoicesData = [];
-let allCustomersData = [];
+// Removed allCustomersData as a global to restore original logic
 let currentCustomerInvoices = [];
 let currentView = ''; // To track the active view for sidebar styling
 
@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(toastContainer);
 
     const modalContainer = document.createElement('div');
-    modalContainer.id = 'modal-container';
     modalContainer.className = 'modal-container';
     modalContainer.innerHTML = `
         <div class="modal-content">
@@ -24,8 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="text" id="modal-input" />
             </div>
             <div class="modal-actions">
-                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
-                <button id="modal-confirm-btn" class="btn btn-primary">Confirm</button>
+                <button id="modal-cancel-btn">Cancel</button>
+                <button id="modal-confirm-btn">Confirm</button>
             </div>
         </div>
     `;
@@ -47,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loaderContainer.innerHTML = `<div class="loader"></div>`;
     document.body.appendChild(loaderContainer);
 
+    // --- Global Click Listeners ---
     window.addEventListener('click', (e) => {
         const statusMenu = document.getElementById('global-status-menu');
         if (statusMenu && !statusMenu.contains(e.target) && !e.target.closest('.update-status-btn')) {
@@ -58,12 +58,41 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- MOBILE RESPONSIVENESS LOGIC (ADDITION) ---
+    const menuToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.getElementById('main-content');
+
+    if (menuToggle && sidebar) {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('is-open');
+        });
+    }
+
+    if (mainContent && sidebar) {
+        mainContent.addEventListener('click', () => {
+            if (sidebar.classList.contains('is-open')) {
+                sidebar.classList.remove('is-open');
+            }
+        });
+    }
+
+    // --- Initial Auth Check ---
     if (localStorage.getItem("access_token")) {
         showApp();
     } else {
         showLogin();
     }
 });
+
+// --- Helper function to close the sidebar on mobile (ADDITION) ---
+function closeSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('is-open');
+    }
+}
 
 // --- Enhanced UI Functions ---
 function showLoader() {
@@ -76,7 +105,7 @@ function hideLoader() {
 
 function updateActiveSidebar(view) {
     currentView = view;
-    document.querySelectorAll('.btn-sidebar').forEach(btn => {
+    document.querySelectorAll('.sidebar button').forEach(btn => {
         btn.classList.remove('active');
     });
     const activeBtn = document.getElementById(`${view}-btn`);
@@ -99,7 +128,7 @@ function showToast(message, type = 'info') {
 
 function showPromptModal({ title, label, inputType = 'text', initialValue = '' }) {
     return new Promise((resolve) => {
-        const modal = document.getElementById('modal-container');
+        const modal = document.querySelector('.modal-container');
         const titleEl = document.getElementById('modal-title');
         const labelEl = document.getElementById('modal-label');
         const inputEl = document.getElementById('modal-input');
@@ -227,20 +256,24 @@ function attachMenuEvents() {
 }
 
 function redirectToStripeDashboard() {
+    closeSidebar(); // ADDED
     window.open("https://dashboard.stripe.com/", "_blank");
 }
 
 async function handleStripeConnect() {
+    closeSidebar(); // ADDED
     const response = await secureFetch(`${API_BASE_URL}/stripe/connect-stripe-account`);
     const data = await response.json();
     window.location.href = data.url;
 }
 
 function loadCreateInvoiceForm() {
+    closeSidebar(); // ADDED
     loadCreateInvoiceFormPrefilled();
 }
 
 function loadCreateInvoiceFormPrefilled(customer = null) {
+    closeSidebar(); // ADDED
     updateActiveSidebar('create-invoice');
     activeFilters = {};
     const today = new Date().toISOString().split('T')[0];
@@ -253,7 +286,7 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
             <label>Amount:<input type="number" name="amount" required step="0.01"></label>
             <label>Issue Date:<input type="date" name="issue_date" value="${today}" required></label>
             <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" name="is_recurring"> Is Recurring</label>
-            <div id="recurring-fields" style="display:none;">
+            <div id="recurring-fields" style="display:none; display: flex; flex-direction: column; gap: 1.5rem;">
                 <label>Frequency:
                     <select name="frequency">
                         <option value="monthly">Monthly</option>
@@ -271,7 +304,7 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
     const form = document.getElementById("create-invoice-form");
     const isRecurringCheckbox = form.querySelector('input[name="is_recurring"]');
     isRecurringCheckbox.addEventListener("change", () => {
-        document.getElementById("recurring-fields").style.display = isRecurringCheckbox.checked ? "block" : "none";
+        document.getElementById("recurring-fields").style.display = isRecurringCheckbox.checked ? "flex" : "none";
     });
 
     form.addEventListener("submit", async (e) => {
@@ -307,7 +340,6 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
     });
 }
 
-// --- RESTORED FUNCTIONS ---
 async function updateRecurringAmount(invoiceId, customerId, isRecurring) {
     if (!isRecurring) {
         showToast("Cannot update a non-recurring invoice.", 'error');
@@ -355,7 +387,11 @@ async function updateInvoiceStatus(invoiceId, newStatus, customerId) {
 
         if (response.ok) {
             showToast("Invoice status updated successfully!", 'success');
-            loadCustomerInvoices(customerId); // Reload to show updated data
+            if(currentView === 'all-invoices') {
+                loadAllInvoices();
+            } else {
+                loadCustomerInvoices(customerId); 
+            }
         } else {
             const errorData = await response.json();
             showToast(`Error: ${errorData.detail || 'Invalid status transition'}`, 'error');
@@ -381,13 +417,13 @@ function showStatusOptions(invoiceId, currentStatus, customerId, buttonElement) 
 
     let optionsHtml = '';
     if (currentStatus !== 'Paid') {
-        optionsHtml += `<button class="btn btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'Paid', ${customerId})">Mark as Paid</button>`;
+        optionsHtml += `<button class="btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'Paid', ${customerId})">Mark as Paid</button>`;
     }
     if (currentStatus !== 'Due') {
-        optionsHtml += `<button class="btn btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'Due', ${customerId})">Mark as Due</button>`;
+        optionsHtml += `<button class="btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'Due', ${customerId})">Mark as Due</button>`;
     }
     if (currentStatus !== 'canceled') {
-        optionsHtml += `<button class="btn btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'canceled', ${customerId})">Cancel Invoice</button>`;
+        optionsHtml += `<button class="btn-ghost" onclick="${hideMenuJs} updateInvoiceStatus(${invoiceId}, 'canceled', ${customerId})">Cancel Invoice</button>`;
     }
     menu.innerHTML = optionsHtml;
     menu.className = 'status-options';
@@ -421,8 +457,6 @@ function showStatusOptions(invoiceId, currentStatus, customerId, buttonElement) 
     menu.dataset.opener = buttonElement.id;
 }
 
-
-// === NEW AND REWRITTEN FUNCTIONS FOR EXCEL-STYLE FILTERING & DESIGN ===
 
 function openFilterMenu(e, data, onApply) {
     const icon = e.target;
@@ -466,8 +500,8 @@ function openFilterMenu(e, data, onApply) {
         </div>
         <ul class="filter-menu-list">${renderListItems()}</ul>
         <div class="filter-menu-actions">
-            <button id="filter-apply-btn" class="btn btn-primary btn-sm">Apply</button>
-            <button id="filter-clear-btn" class="btn btn-secondary btn-sm">Clear Filter</button>
+            <button id="filter-apply-btn">Apply</button>
+            <button id="filter-clear-btn">Clear Filter</button>
         </div>
     `;
 
@@ -558,13 +592,14 @@ function renderAllInvoiceRows(invoicesToRender, tbody) {
 }
 
 async function loadAllInvoices() {
+    closeSidebar(); // ADDED
     updateActiveSidebar('all-invoices');
     activeFilters = {};
 
     const content = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h3 style="margin: 0;">All Invoices</h3>
-            <button id="clear-all-filters-btn" class="btn btn-secondary btn-sm" style="display:none;">Clear All Filters</button>
+            <button id="clear-all-filters-btn" style="display:none;">Clear All Filters</button>
         </div>
         <div class="table-wrapper">
             <table>
@@ -620,32 +655,37 @@ function renderCustomerInvoiceRows(invoicesToRender, customerId, tbody) {
         return;
     }
     invoicesToRender.forEach(inv => {
-        tbody.innerHTML += `
-            <tr>
-                <td>${inv.id}</td>
-                <td class="status-${inv.status.toLowerCase()}">${inv.status}</td>
-                <td>${inv.is_recurring ? 'Yes' : 'No'}</td>
-                <td>${inv.issue_date}</td>
-                <td>${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(inv.amount)}</td>
-                <td>${inv.frequency ?? '-'}</td>
-                <td>${inv.recurring_amount ?? '-'}</td>
-                <td>${inv.notes ?? ''}</td>
-                <td class="actions-cell">
-                    <button class="btn btn-secondary" onclick="updateRecurringAmount(${inv.id}, ${customerId}, ${inv.is_recurring})">Update Recurring</button>
-                    <button id="update-status-btn-${inv.id}" class="btn btn-secondary update-status-btn" onclick="showStatusOptions(${inv.id}, '${inv.status}', ${customerId}, this)">Update Status</button>
-                </td>
-            </tr>`;
+        const row = document.createElement('tr');
+        // The only change is adding the "btn" class to the "Update Status" button below
+        row.innerHTML = `
+            <td>${inv.id}</td>
+            <td class="status-${inv.status.toLowerCase()}">${inv.status}</td>
+            <td>${inv.is_recurring ? 'Yes' : 'No'}</td>
+            <td>${inv.issue_date}</td>
+            <td>${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(inv.amount)}</td>
+            <td>${inv.frequency ?? '-'}</td>
+            <td>${inv.recurring_amount ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(inv.recurring_amount) : '-'}</td>
+            <td>${inv.notes ?? ''}</td>
+            <td class="actions-cell">
+                <button class="btn btn-update-recurring">Update Recurring</button>
+                <button class="btn update-status-btn" id="update-status-btn-${inv.id}">Update Status</button>
+            </td>`;
+
+        row.querySelector('.btn-update-recurring').onclick = () => updateRecurringAmount(inv.id, customerId, inv.is_recurring);
+        row.querySelector('.update-status-btn').onclick = (e) => showStatusOptions(inv.id, inv.status, customerId, e.currentTarget);
+        tbody.appendChild(row);
     });
 }
 
 async function loadCustomerInvoices(customerId) {
+    closeSidebar(); // ADDED
     activeFilters = {};
     updateActiveSidebar('');
 
     const content = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
              <h3>Customer Invoices</h3>
-             <button id="clear-all-filters-btn" class="btn btn-secondary btn-sm" style="display:none;">Clear All Filters</button>
+             <button id="clear-all-filters-btn" style="display:none;">Clear All Filters</button>
         </div>
         <div class="table-wrapper">
             <table>
@@ -657,6 +697,7 @@ async function loadCustomerInvoices(customerId) {
                         <th>Issue Date <button class="filter-icon" data-column="issue_date">&#x25BC;</button></th>
                         <th>Amount <button class="filter-icon" data-column="amount">&#x25BC;</button></th>
                         <th>Frequency <button class="filter-icon" data-column="frequency">&#x25BC;</button></th>
+                        <th>Recurring Amt <button class="filter-icon" data-column="recurring_amount">&#x25BC;</button></th>
                         <th>Notes <button class="filter-icon" data-column="notes">&#x25BC;</button></th>
                         <th>Actions</th>
                     </tr>
@@ -694,20 +735,24 @@ async function loadCustomerInvoices(customerId) {
     }
 }
 
+// ==========================================================
+// RESTORED ORIGINAL WORKING LOGIC FOR `loadCustomers`
+// ==========================================================
 async function loadCustomers() {
+    closeSidebar(); // ADDED
     updateActiveSidebar('customers');
-    let allCustomers = [];
+    let allCustomers = []; // Using local variable as in original script
 
     const content = `
         <h3>Customers</h3>
-        <div class="controls-container">
-            <div class="filter-controls">
+        <div class="controls-container" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+            <div class="filter-controls" style="display: flex; gap: 1rem; align-items: center;">
                 <span>Status:</span>
-                <label><input type="radio" name="customer-status-filter" value="all" checked> All</label>
-                <label><input type="radio" name="customer-status-filter" value="active"> Active</label>
-                <label><input type="radio" name="customer-status-filter" value="inactive"> Inactive</label>
+                <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="customer-status-filter" value="all" checked> All</label>
+                <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="customer-status-filter" value="active"> Active</label>
+                <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="customer-status-filter" value="inactive"> Inactive</label>
             </div>
-            <input type="text" id="customer-search" placeholder="Search customers..." class="search-input">
+            <input type="text" id="customer-search" placeholder="Search customers..." class="search-input" style="flex: 1; min-width: 250px;">
         </div>
         <div class="table-wrapper">
         <table>
@@ -721,10 +766,10 @@ async function loadCustomers() {
                 </tr>
             </thead>
             <tbody id="customer-table-body"></tbody>
-        </table>`;
+        </table>
+        </div>`;
     document.getElementById("main-content").innerHTML = content;
-    attachMenuEvents();
-
+    
     const tbody = document.getElementById("customer-table-body");
     const searchInput = document.getElementById("customer-search");
     const statusFilters = document.querySelectorAll('input[name="customer-status-filter"]');
@@ -753,6 +798,7 @@ async function loadCustomers() {
             applyCustomerSearch(allCustomers);
         } catch (error) {
             console.error("Failed to fetch customers:", error);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Failed to load customers.</td></tr>';
         } finally {
             hideLoader();
         }
@@ -777,7 +823,6 @@ function renderCustomerRows(customersToRender, tbody) {
     }
     customersToRender.forEach(cust => {
         const rowClass = !cust.has_active_invoices ? 'customer-inactive' : '';
-
         tbody.innerHTML += `
             <tr class="${rowClass}">
                 <td>${cust.first_name}</td>
@@ -785,8 +830,8 @@ function renderCustomerRows(customersToRender, tbody) {
                 <td>${cust.email}</td>
                 <td>${cust.has_active_invoices ? 'Yes' : 'No'}</td>
                 <td class="actions-cell">
-                    <button class="btn btn-secondary" onclick="loadCustomerInvoices(${cust.id})">View Invoices</button>
-                    <button class="btn btn-secondary" onclick='loadCreateInvoiceFormPrefilled(${JSON.stringify(cust)})'>Create Invoice</button>
+                    <button class="btn" onclick="loadCustomerInvoices(${cust.id})">View Invoices</button>
+                    <button class="btn" onclick='loadCreateInvoiceFormPrefilled(${JSON.stringify(cust)})'>Create Invoice</button>
                 </td>
             </tr>
         `;
