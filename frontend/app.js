@@ -86,6 +86,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// --- Delegated click handler for dynamic Edit Phone buttons ---
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-edit-phone');
+    if (!btn) return;
+
+    const customerId = parseInt(btn.dataset.id, 10);
+    const currentPhone = btn.dataset.phone || '';
+    await editCustomerPhone(customerId, currentPhone);
+});
+
 // --- Helper function to close the sidebar on mobile (ADDITION) ---
 function closeSidebar() {
     const sidebar = document.querySelector('.sidebar');
@@ -203,7 +213,6 @@ if (document.getElementById("login-form")) {
         }
     });
 }
-
 
 async function secureFetch(url, options = {}) {
     const token = localStorage.getItem("access_token");
@@ -456,7 +465,6 @@ function showStatusOptions(invoiceId, currentStatus, customerId, buttonElement) 
 
     menu.dataset.opener = buttonElement.id;
 }
-
 
 function openFilterMenu(e, data, onApply) {
     const icon = e.target;
@@ -736,7 +744,7 @@ async function loadCustomerInvoices(customerId) {
 }
 
 // ==========================================================
-// RESTORED ORIGINAL WORKING LOGIC FOR `loadCustomers`
+// RESTORED ORIGINAL WORKING LOGIC FOR `loadCustomers` (with Phone edits)
 // ==========================================================
 async function loadCustomers() {
     closeSidebar(); // ADDED
@@ -761,6 +769,7 @@ async function loadCustomers() {
                     <th>First Name</th>
                     <th>Last Name</th>
                     <th>Email</th>
+                    <th>Phone</th>          <!-- NEW -->
                     <th>Active</th>
                     <th>Actions</th>
                 </tr>
@@ -777,7 +786,7 @@ async function loadCustomers() {
     const applyCustomerSearch = (customers) => {
         const query = searchInput.value.toLowerCase();
         const filteredByText = customers.filter(cust => {
-            const match = `${cust.first_name} ${cust.last_name} ${cust.email}`.toLowerCase();
+            const match = `${cust.first_name} ${cust.last_name} ${cust.email} ${cust.phone || ''}`.toLowerCase(); // includes phone
             return match.includes(query);
         });
         renderCustomerRows(filteredByText, tbody);
@@ -798,7 +807,7 @@ async function loadCustomers() {
             applyCustomerSearch(allCustomers);
         } catch (error) {
             console.error("Failed to fetch customers:", error);
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Failed to load customers.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Failed to load customers.</td></tr>';
         } finally {
             hideLoader();
         }
@@ -818,7 +827,7 @@ async function loadCustomers() {
 function renderCustomerRows(customersToRender, tbody) {
     tbody.innerHTML = "";
     if (customersToRender.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No customers found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No customers found.</td></tr>';
         return;
     }
     customersToRender.forEach(cust => {
@@ -828,12 +837,59 @@ function renderCustomerRows(customersToRender, tbody) {
                 <td>${cust.first_name}</td>
                 <td>${cust.last_name}</td>
                 <td>${cust.email}</td>
+                <td>${cust.phone ? cust.phone : ''}</td>
                 <td>${cust.has_active_invoices ? 'Yes' : 'No'}</td>
                 <td class="actions-cell">
                     <button class="btn" onclick="loadCustomerInvoices(${cust.id})">View Invoices</button>
                     <button class="btn" onclick='loadCreateInvoiceFormPrefilled(${JSON.stringify(cust)})'>Create Invoice</button>
+                    <button
+                        class="btn btn-edit-phone"
+                        data-id="${cust.id}"
+                        data-phone="${(cust.phone || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                    >Edit</button>
                 </td>
             </tr>
         `;
     });
+}
+
+// ---- Edit Phone handler (uses your modal + secureFetch) ----
+async function editCustomerPhone(customerId, currentPhone) {
+  const newPhone = await showPromptModal({
+    title: 'Edit Phone',
+    label: 'Phone number',
+    inputType: 'text',
+    initialValue: currentPhone || ''
+  });
+  if (newPhone === null) return; // user cancelled
+
+  try {
+    showLoader();
+    const res = await secureFetch(`${API_BASE_URL}/customers/${customerId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: newPhone.trim() || null })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to update customer');
+    }
+    showToast('Customer updated.', 'success');
+    // Reload customers with current filter
+    const selected = document.querySelector('input[name="customer-status-filter"]:checked');
+    if (selected) {
+      // Trigger the existing fetch path with the current filter
+      const value = selected.value;
+      selected.checked = true;
+      const evt = new Event('change');
+      selected.dispatchEvent(evt);
+    } else {
+      loadCustomers();
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('Could not update customer.', 'error');
+  } finally {
+    hideLoader();
+  }
 }

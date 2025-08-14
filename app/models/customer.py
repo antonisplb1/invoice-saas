@@ -14,6 +14,7 @@ class Customer(Base):
     last_name   = Column(String, nullable=False)
     email       = Column(String, nullable=False, index=True) # 2. unique=True REMOVED
     created_at  = Column(DateTime, nullable=False, default=datetime.utcnow)
+    phone       = Column(String, nullable=True)
 
     merchant    = relationship("User", back_populates="customers")
     invoices    = relationship("Invoice", back_populates="customer")
