@@ -3,9 +3,8 @@ const API_BASE_URL = "http://localhost:8000"; // adjust if needed
 // --- Global State for Filtering ---
 let activeFilters = {};
 let allInvoicesData = [];
-// Removed allCustomersData as a global to restore original logic
 let currentCustomerInvoices = [];
-let currentView = ''; // To track the active view for sidebar styling
+let currentView = ''; // Track active view for sidebar styling
 
 document.addEventListener("DOMContentLoaded", () => {
     // --- Initialize UI Components ---
@@ -58,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- MOBILE RESPONSIVENESS LOGIC (ADDITION) ---
+    // --- MOBILE TOGGLE ---
     const menuToggle = document.getElementById('mobile-menu-toggle');
     const sidebar = document.querySelector('.sidebar');
     const mainContent = document.getElementById('main-content');
@@ -69,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
             sidebar.classList.toggle('is-open');
         });
     }
-
     if (mainContent && sidebar) {
         mainContent.addEventListener('click', () => {
             if (sidebar.classList.contains('is-open')) {
@@ -86,44 +84,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// --- Delegated click handler for dynamic Edit Phone buttons ---
+// --- Delegated click handler for dynamic Edit Customer buttons ---
 document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.btn-edit-phone');
+    const btn = e.target.closest('.btn-edit-customer');
     if (!btn) return;
 
-    const customerId = parseInt(btn.dataset.id, 10);
-    const currentPhone = btn.dataset.phone || '';
-    await editCustomerPhone(customerId, currentPhone);
+    const customer = {
+        id: parseInt(btn.dataset.id, 10),
+        first_name: btn.dataset.first || '',
+        last_name: btn.dataset.last || '',
+        email: btn.dataset.email || '',
+        phone: btn.dataset.phone || ''
+    };
+    await editCustomerFlow(customer);
 });
 
-// --- Helper function to close the sidebar on mobile (ADDITION) ---
+// --- Helper: close sidebar on mobile ---
 function closeSidebar() {
     const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        sidebar.classList.remove('is-open');
-    }
+    if (sidebar) sidebar.classList.remove('is-open');
 }
 
-// --- Enhanced UI Functions ---
-function showLoader() {
-    document.getElementById('loader-container').style.display = 'flex';
-}
-
-function hideLoader() {
-    document.getElementById('loader-container').style.display = 'none';
-}
-
+// --- UI helpers ---
+function showLoader() { document.getElementById('loader-container').style.display = 'flex'; }
+function hideLoader() { document.getElementById('loader-container').style.display = 'none'; }
 function updateActiveSidebar(view) {
     currentView = view;
-    document.querySelectorAll('.sidebar button').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    document.querySelectorAll('.sidebar button').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.getElementById(`${view}-btn`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
+    if (activeBtn) activeBtn.classList.add('active');
 }
-
 function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -136,38 +126,33 @@ function showToast(message, type = 'info') {
     }, 4000);
 }
 
+// --- Modal helpers ---
 function showPromptModal({ title, label, inputType = 'text', initialValue = '' }) {
     return new Promise((resolve) => {
         const modal = document.querySelector('.modal-container');
         const titleEl = document.getElementById('modal-title');
-        const labelEl = document.getElementById('modal-label');
-        const inputEl = document.getElementById('modal-input');
         const confirmBtn = document.getElementById('modal-confirm-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
+        const body = document.getElementById('modal-body');
+
+        body.innerHTML = `
+            <label id="modal-label" for="modal-input">${label}</label>
+            <input type="text" id="modal-input" />
+        `;
+        const inputEl = document.getElementById('modal-input');
 
         titleEl.textContent = title;
-        labelEl.textContent = label;
         inputEl.type = inputType;
         inputEl.value = initialValue;
 
         modal.style.display = 'flex';
         inputEl.focus();
 
-        const onConfirm = () => {
-            cleanup();
-            resolve(inputEl.value);
-        };
-        const onCancel = () => {
-            cleanup();
-            resolve(null);
-        };
+        const onConfirm = () => { cleanup(); resolve(inputEl.value); };
+        const onCancel = () => { cleanup(); resolve(null); };
         const onKeydown = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                onConfirm();
-            } else if (e.key === 'Escape') {
-                onCancel();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+            else if (e.key === 'Escape') { onCancel(); }
         };
 
         const cleanup = () => {
@@ -181,6 +166,53 @@ function showPromptModal({ title, label, inputType = 'text', initialValue = '' }
         cancelBtn.addEventListener('click', onCancel);
         modal.addEventListener('keydown', onKeydown);
     });
+}
+
+function showChoiceModal({ title, options }) {
+    return new Promise((resolve) => {
+        const modal = document.querySelector('.modal-container');
+        const titleEl = document.getElementById('modal-title');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
+        const body = document.getElementById('modal-body');
+
+        titleEl.textContent = title;
+        body.innerHTML = `
+            <div role="radiogroup" id="choice-group" style="display:flex;flex-direction:column;gap:.5rem;">
+                ${options.map((o, i) => `
+                    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+                        <input type="radio" name="choice-opt" value="${o.key}" ${i===0?'checked':''}>
+                        ${o.label}
+                    </label>
+                `).join('')}
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+        const onConfirm = () => {
+            const selected = body.querySelector('input[name="choice-opt"]:checked');
+            cleanup();
+            resolve(selected ? selected.value : null);
+        };
+        const onCancel = () => { cleanup(); resolve(null); };
+        const onKeydown = (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+            else if (e.key === 'Escape') { onCancel(); }
+        };
+        const cleanup = () => {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            modal.removeEventListener('keydown', onKeydown);
+        };
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        modal.addEventListener('keydown', onKeydown);
+    });
+}
+
+function escapeHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // --- Auth and Navigation ---
@@ -240,6 +272,7 @@ function showApp() {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app").style.display = "flex";
     attachMenuEvents();
+    refreshStripeButton();  // ensure stripe button state on load
     loadAllInvoices();
 }
 
@@ -262,30 +295,80 @@ function attachMenuEvents() {
     if (stripeBtn) stripeBtn.onclick = handleStripeConnect;
     if (dashBtn) dashBtn.onclick = redirectToStripeDashboard;
     if (logoutBtn) logoutBtn.onclick = logout;
+
+    // double-check after wiring events
+    refreshStripeButton();
 }
 
 function redirectToStripeDashboard() {
-    closeSidebar(); // ADDED
+    closeSidebar();
     window.open("https://dashboard.stripe.com/", "_blank");
 }
 
 async function handleStripeConnect() {
-    closeSidebar(); // ADDED
+    closeSidebar();
     const response = await secureFetch(`${API_BASE_URL}/stripe/connect-stripe-account`);
     const data = await response.json();
     window.location.href = data.url;
 }
 
-function loadCreateInvoiceForm() {
-    closeSidebar(); // ADDED
-    loadCreateInvoiceFormPrefilled();
+// --- Stripe button state (GLOBAL function) ---
+async function refreshStripeButton() {
+  const btn = document.getElementById('stripe-connect-btn');
+  if (!btn) return;
+
+  const setConnected = () => {
+    btn.textContent = 'Stripe Connected';
+    btn.disabled = true;
+    btn.onclick = null;
+    btn.classList.add('is-disabled');
+  };
+  const setConnectable = () => {
+    btn.textContent = 'Stripe Connect';
+    btn.disabled = false;
+    btn.onclick = handleStripeConnect;
+    btn.classList.remove('is-disabled');
+  };
+
+  try {
+    const res = await secureFetch(`${API_BASE_URL}/auth/me`);
+    const payload = await res.json();
+    const me = payload && (payload.user ? payload.user : payload);
+
+    const candidateIds = [
+      me?.stripe_account_id,
+      me?.stripe_account,
+      me?.stripe_id,
+      me?.connected_account_id,
+      me?.stripe?.account_id,
+      me?.settings?.stripe_account_id
+    ];
+    const connectedFlag = Boolean(
+      me?.has_stripe ||
+      me?.is_stripe_connected ||
+      me?.stripe_connected ||
+      candidateIds.find(v => typeof v === 'string' ? v.trim().length > 0 : !!v)
+    );
+
+    if (connectedFlag) setConnected();
+    else setConnectable();
+  } catch (e) {
+    console.warn('Could not load /auth/me; leaving Stripe Connect enabled.', e);
+    setConnectable();
+  }
 }
 
+// --- Create Invoice ---
+function loadCreateInvoiceForm() {
+    closeSidebar();
+    loadCreateInvoiceFormPrefilled();
+}
 function loadCreateInvoiceFormPrefilled(customer = null) {
-    closeSidebar(); // ADDED
+    closeSidebar();
     updateActiveSidebar('create-invoice');
     activeFilters = {};
     const today = new Date().toISOString().split('T')[0];
+
     const content = `
         <h3>Create Invoice</h3>
         <form id="create-invoice-form">
@@ -294,16 +377,22 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
             <label>Customer Email:<input type="email" name="customer_email" required value="${customer ? customer.email : ''}"></label>
             <label>Amount:<input type="number" name="amount" required step="0.01"></label>
             <label>Issue Date:<input type="date" name="issue_date" value="${today}" required></label>
-            <label style="display: flex; align-items: center; cursor: pointer;"><input type="checkbox" name="is_recurring"> Is Recurring</label>
-            <div id="recurring-fields" style="display:none; display: flex; flex-direction: column; gap: 1.5rem;">
+
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" name="is_recurring" id="is_recurring">
+                &nbsp;Is Recurring
+            </label>
+
+            <div id="recurring-fields" style="display:none; flex-direction: column; gap: 1.5rem;">
                 <label>Frequency:
-                    <select name="frequency">
+                    <select name="frequency" id="frequency">
                         <option value="monthly">Monthly</option>
                         <option value="yearly">Yearly</option>
                     </select>
                 </label>
-                <label>Recurring Amount:<input type="number" name="recurring_amount" step="0.01"></label>
+                <label>Recurring Amount:<input type="number" name="recurring_amount" id="recurring_amount" step="0.01"></label>
             </div>
+
             <label>Notes:<textarea name="notes"></textarea></label>
             <button type="submit" class="btn btn-primary">Create Invoice</button>
         </form>
@@ -311,22 +400,32 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
     document.getElementById("main-content").innerHTML = content;
 
     const form = document.getElementById("create-invoice-form");
-    const isRecurringCheckbox = form.querySelector('input[name="is_recurring"]');
-    isRecurringCheckbox.addEventListener("change", () => {
-        document.getElementById("recurring-fields").style.display = isRecurringCheckbox.checked ? "flex" : "none";
-    });
+    const isRecurringCheckbox = form.querySelector('#is_recurring');
+    const recurringFields = document.getElementById("recurring-fields");
+    const recurringInputs = recurringFields.querySelectorAll('select, input');
+
+    function updateRecurringVisibility() {
+        const on = isRecurringCheckbox.checked;
+        recurringFields.style.display = on ? "flex" : "none";
+        recurringInputs.forEach(el => { el.disabled = !on; });
+    }
+    updateRecurringVisibility();
+    isRecurringCheckbox.addEventListener("change", updateRecurringVisibility);
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const formData = new FormData(form);
         const jsonData = Object.fromEntries(formData.entries());
-        jsonData.is_recurring = !!jsonData.is_recurring;
-        if (jsonData.is_recurring) {
-            jsonData.recurring_amount = parseFloat(jsonData.recurring_amount);
-        } else {
+
+        jsonData.is_recurring = !!isRecurringCheckbox.checked;
+
+        if (!jsonData.is_recurring) {
             delete jsonData.frequency;
             delete jsonData.recurring_amount;
+        } else {
+            jsonData.recurring_amount = jsonData.recurring_amount ? parseFloat(jsonData.recurring_amount) : null;
         }
+
         showLoader();
         try {
             const response = await secureFetch(`${API_BASE_URL}/invoices/`, {
@@ -335,7 +434,7 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
                 body: JSON.stringify(jsonData)
             });
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.detail || response.statusText);
             }
             const result = await response.json();
@@ -349,6 +448,7 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
     });
 }
 
+// --- Invoice helpers ---
 async function updateRecurringAmount(invoiceId, customerId, isRecurring) {
     if (!isRecurring) {
         showToast("Cannot update a non-recurring invoice.", 'error');
@@ -360,7 +460,6 @@ async function updateRecurringAmount(invoiceId, customerId, isRecurring) {
         label: 'Enter the new amount:',
         inputType: 'number',
     });
-
     if (newAmountStr === null) return;
 
     const newAmount = parseFloat(newAmountStr);
@@ -377,7 +476,7 @@ async function updateRecurringAmount(invoiceId, customerId, isRecurring) {
             body: JSON.stringify({ recurring_amount: newAmount })
         });
         showToast("Recurring amount updated!", 'success');
-        loadCustomerInvoices(customerId); // Reload to show updated data
+        loadCustomerInvoices(customerId);
     } catch (error) {
         showToast("Failed to update recurring amount.", 'error');
     } finally {
@@ -466,6 +565,7 @@ function showStatusOptions(invoiceId, currentStatus, customerId, buttonElement) 
     menu.dataset.opener = buttonElement.id;
 }
 
+// --- Filtering UI ---
 function openFilterMenu(e, data, onApply) {
     const icon = e.target;
     const columnKey = icon.dataset.column;
@@ -548,7 +648,6 @@ function openFilterMenu(e, data, onApply) {
 
 function applyAndRenderFilters(data, tbody, renderFn, extraParam = null) {
     let filteredData = [...data];
-
     for (const columnKey in activeFilters) {
         const filterValues = activeFilters[columnKey];
         if (filterValues && filterValues.length > 0) {
@@ -559,25 +658,18 @@ function applyAndRenderFilters(data, tbody, renderFn, extraParam = null) {
     }
 
     document.querySelectorAll('.filter-icon').forEach(icon => {
-        if (activeFilters[icon.dataset.column]) {
-            icon.classList.add('active');
-        } else {
-            icon.classList.remove('active');
-        }
+        if (activeFilters[icon.dataset.column]) icon.classList.add('active');
+        else icon.classList.remove('active');
     });
     
     const clearAllBtn = document.getElementById('clear-all-filters-btn');
-    if(clearAllBtn) {
-        clearAllBtn.style.display = Object.keys(activeFilters).length > 0 ? 'inline-flex' : 'none';
-    }
+    if (clearAllBtn) clearAllBtn.style.display = Object.keys(activeFilters).length > 0 ? 'inline-flex' : 'none';
 
-    if (extraParam !== null) {
-        renderFn(filteredData, extraParam, tbody);
-    } else {
-        renderFn(filteredData, tbody);
-    }
+    if (extraParam !== null) renderFn(filteredData, extraParam, tbody);
+    else renderFn(filteredData, tbody);
 }
 
+// --- All invoices view ---
 function renderAllInvoiceRows(invoicesToRender, tbody) {
     tbody.innerHTML = "";
     if (invoicesToRender.length === 0) {
@@ -600,7 +692,7 @@ function renderAllInvoiceRows(invoicesToRender, tbody) {
 }
 
 async function loadAllInvoices() {
-    closeSidebar(); // ADDED
+    closeSidebar();
     updateActiveSidebar('all-invoices');
     activeFilters = {};
 
@@ -656,6 +748,7 @@ async function loadAllInvoices() {
     }
 }
 
+// --- Single customer invoices view ---
 function renderCustomerInvoiceRows(invoicesToRender, customerId, tbody) {
     tbody.innerHTML = "";
     if (invoicesToRender.length === 0) {
@@ -664,7 +757,6 @@ function renderCustomerInvoiceRows(invoicesToRender, customerId, tbody) {
     }
     invoicesToRender.forEach(inv => {
         const row = document.createElement('tr');
-        // The only change is adding the "btn" class to the "Update Status" button below
         row.innerHTML = `
             <td>${inv.id}</td>
             <td class="status-${inv.status.toLowerCase()}">${inv.status}</td>
@@ -678,7 +770,6 @@ function renderCustomerInvoiceRows(invoicesToRender, customerId, tbody) {
                 <button class="btn btn-update-recurring">Update Recurring</button>
                 <button class="btn update-status-btn" id="update-status-btn-${inv.id}">Update Status</button>
             </td>`;
-
         row.querySelector('.btn-update-recurring').onclick = () => updateRecurringAmount(inv.id, customerId, inv.is_recurring);
         row.querySelector('.update-status-btn').onclick = (e) => showStatusOptions(inv.id, inv.status, customerId, e.currentTarget);
         tbody.appendChild(row);
@@ -686,7 +777,7 @@ function renderCustomerInvoiceRows(invoicesToRender, customerId, tbody) {
 }
 
 async function loadCustomerInvoices(customerId) {
-    closeSidebar(); // ADDED
+    closeSidebar();
     activeFilters = {};
     updateActiveSidebar('');
 
@@ -744,12 +835,12 @@ async function loadCustomerInvoices(customerId) {
 }
 
 // ==========================================================
-// RESTORED ORIGINAL WORKING LOGIC FOR `loadCustomers` (with Phone edits)
+// Customers view (with Phone + Edit-any-field flow)
 // ==========================================================
 async function loadCustomers() {
-    closeSidebar(); // ADDED
+    closeSidebar();
     updateActiveSidebar('customers');
-    let allCustomers = []; // Using local variable as in original script
+    let allCustomers = [];
 
     const content = `
         <h3>Customers</h3>
@@ -769,7 +860,7 @@ async function loadCustomers() {
                     <th>First Name</th>
                     <th>Last Name</th>
                     <th>Email</th>
-                    <th>Phone</th>          <!-- NEW -->
+                    <th>Phone</th>
                     <th>Active</th>
                     <th>Actions</th>
                 </tr>
@@ -786,7 +877,7 @@ async function loadCustomers() {
     const applyCustomerSearch = (customers) => {
         const query = searchInput.value.toLowerCase();
         const filteredByText = customers.filter(cust => {
-            const match = `${cust.first_name} ${cust.last_name} ${cust.email} ${cust.phone || ''}`.toLowerCase(); // includes phone
+            const match = `${cust.first_name} ${cust.last_name} ${cust.email} ${cust.phone || ''}`.toLowerCase();
             return match.includes(query);
         });
         renderCustomerRows(filteredByText, tbody);
@@ -796,11 +887,8 @@ async function loadCustomers() {
         showLoader();
         try {
             let url = `${API_BASE_URL}/customers`;
-            if (filter === 'active') {
-                url += '?is_active=true';
-            } else if (filter === 'inactive') {
-                url += '?is_active=false';
-            }
+            if (filter === 'active') url += '?is_active=true';
+            else if (filter === 'inactive') url += '?is_active=false';
 
             const response = await secureFetch(url);
             allCustomers = await response.json();
@@ -814,13 +902,7 @@ async function loadCustomers() {
     };
 
     searchInput.addEventListener("input", () => applyCustomerSearch(allCustomers));
-
-    statusFilters.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            fetchAndRender(e.target.value);
-        });
-    });
-
+    statusFilters.forEach(radio => radio.addEventListener('change', (e) => fetchAndRender(e.target.value)));
     fetchAndRender('all');
 }
 
@@ -843,9 +925,12 @@ function renderCustomerRows(customersToRender, tbody) {
                     <button class="btn" onclick="loadCustomerInvoices(${cust.id})">View Invoices</button>
                     <button class="btn" onclick='loadCreateInvoiceFormPrefilled(${JSON.stringify(cust)})'>Create Invoice</button>
                     <button
-                        class="btn btn-edit-phone"
+                        class="btn btn-edit-customer"
                         data-id="${cust.id}"
-                        data-phone="${(cust.phone || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                        data-first="${escapeHtml(cust.first_name)}"
+                        data-last="${escapeHtml(cust.last_name)}"
+                        data-email="${escapeHtml(cust.email)}"
+                        data-phone="${escapeHtml(cust.phone || '')}"
                     >Edit</button>
                 </td>
             </tr>
@@ -853,34 +938,61 @@ function renderCustomerRows(customersToRender, tbody) {
     });
 }
 
-// ---- Edit Phone handler (uses your modal + secureFetch) ----
-async function editCustomerPhone(customerId, currentPhone) {
-  const newPhone = await showPromptModal({
-    title: 'Edit Phone',
-    label: 'Phone number',
-    inputType: 'text',
-    initialValue: currentPhone || ''
+// ---- Edit-any-field flow (first/last/email/phone) ----
+async function editCustomerFlow(customer) {
+  const field = await showChoiceModal({
+    title: `Edit Customer`,
+    options: [
+      { key: 'first_name', label: 'First name' },
+      { key: 'last_name', label: 'Last name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone number' },
+    ]
   });
-  if (newPhone === null) return; // user cancelled
+  if (!field) return;
+
+  const fieldLabels = {
+    first_name: 'First name',
+    last_name: 'Last name',
+    email: 'Email',
+    phone: 'Phone number'
+  };
+  const inputType = field === 'email' ? 'email' : 'text';
+  const currentValue = customer[field] || '';
+  const newValue = await showPromptModal({
+    title: `Edit ${fieldLabels[field]}`,
+    label: fieldLabels[field],
+    inputType,
+    initialValue: currentValue
+  });
+  if (newValue === null) return;
+
+  if (field === 'email') {
+    const emailOk = /^\S+@\S+\.\S+$/.test(newValue.trim());
+    if (!emailOk) {
+      showToast('Please enter a valid email address.', 'error');
+      return;
+    }
+  }
 
   try {
     showLoader();
-    const res = await secureFetch(`${API_BASE_URL}/customers/${customerId}`, {
+    const payload = {};
+    payload[field] = newValue.trim() || null;
+
+    const res = await secureFetch(`${API_BASE_URL}/customers/${customer.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: newPhone.trim() || null })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || 'Failed to update customer');
     }
     showToast('Customer updated.', 'success');
-    // Reload customers with current filter
+
     const selected = document.querySelector('input[name="customer-status-filter"]:checked');
     if (selected) {
-      // Trigger the existing fetch path with the current filter
-      const value = selected.value;
-      selected.checked = true;
       const evt = new Event('change');
       selected.dispatchEvent(evt);
     } else {
