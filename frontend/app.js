@@ -76,6 +76,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // --- Handle Stripe return (success/cancel) BEFORE auth check ---
+    handleStripeReturn();
+
     // --- Initial Auth Check ---
     if (localStorage.getItem("access_token")) {
         showApp();
@@ -83,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showLogin();
     }
 });
+
 
 // --- Delegated click handler for dynamic Edit Customer buttons ---
 document.addEventListener('click', async (e) => {
@@ -413,39 +417,69 @@ function loadCreateInvoiceFormPrefilled(customer = null) {
     isRecurringCheckbox.addEventListener("change", updateRecurringVisibility);
 
     form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const jsonData = Object.fromEntries(formData.entries());
+    e.preventDefault();
+    const formData = new FormData(form);
+    const jsonData = Object.fromEntries(formData.entries());
 
-        jsonData.is_recurring = !!isRecurringCheckbox.checked;
+    // Convert checkbox to boolean
+    jsonData.is_recurring = !!isRecurringCheckbox.checked;
 
-        if (!jsonData.is_recurring) {
-            delete jsonData.frequency;
-            delete jsonData.recurring_amount;
-        } else {
-            jsonData.recurring_amount = jsonData.recurring_amount ? parseFloat(jsonData.recurring_amount) : null;
-        }
+    // If not recurring, drop those fields from payload
+    if (!jsonData.is_recurring) {
+        delete jsonData.frequency;
+        delete jsonData.recurring_amount;
+    } else {
+        jsonData.recurring_amount = jsonData.recurring_amount ? parseFloat(jsonData.recurring_amount) : null;
+    }
 
-        showLoader();
-        try {
-            const response = await secureFetch(`${API_BASE_URL}/invoices/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(jsonData)
-            });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || response.statusText);
+    showLoader();
+    try {
+        const response = await secureFetch(`${API_BASE_URL}/invoices/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(jsonData)
+        });
+
+        if (!response.ok) {
+            // Try json first, then fall back to text
+            let detail = 'Request failed';
+            const ct = response.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                const err = await response.json().catch(() => ({}));
+                detail = err.detail || JSON.stringify(err) || detail;
+            } else {
+                const txt = await response.text().catch(() => '');
+                if (txt) detail = txt;
             }
-            const result = await response.json();
-            showToast(`Invoice Created: ID ${result.id}`, 'success');
-            loadAllInvoices();
-        } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-        } finally {
-            hideLoader();
+            throw new Error(detail);
         }
-    });
+
+        // Success: parse JSON only if it exists and is JSON
+        const ct = (response.headers.get('content-type') || '').toLowerCase();
+        const clen = +(response.headers.get('content-length') || 0);
+
+        let result = null;
+        if (ct.includes('application/json')) {
+            // Some servers don't set content-length reliably, so still try/catch
+            result = await response.json().catch(() => null);
+        } else if (clen > 0) {
+            // Non‑JSON but not empty; read text to clear the stream (optional)
+            await response.text().catch(() => '');
+        }
+
+        if (result && result.id) {
+            showToast(`Invoice Created: ID ${result.id}`, 'success');
+        } else {
+            showToast('Invoice created.', 'success');
+        }
+
+        loadAllInvoices();
+    } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+    } finally {
+        hideLoader();
+    }
+});
 }
 
 // --- Invoice helpers ---
@@ -1004,4 +1038,22 @@ async function editCustomerFlow(customer) {
   } finally {
     hideLoader();
   }
+
+  function handleStripeReturn() {
+  const url = new URL(window.location.href);
+  const paymentResult = url.searchParams.get('paymentResult'); // 'success' | 'cancel' | null
+
+  if (!paymentResult) return;
+
+  if (paymentResult === 'success') {
+    showToast('✅ Payment successful. Thank you!', 'success');
+  } else if (paymentResult === 'cancel') {
+    showToast('Payment canceled.', 'error');
+  }
+
+  // Clean the URL so the toast won’t reappear on refresh
+  url.searchParams.delete('paymentResult');
+  url.searchParams.delete('session_id'); // safe to remove if present
+  window.history.replaceState({}, '', url.pathname + (url.search ? `?${url.searchParams}` : '') + url.hash);
+}
 }

@@ -106,7 +106,7 @@ def create_invoice(
     db.refresh(db_invoice)
 
     # --- The rest of your Stripe and Email logic remains the same ---
-    base_domain = os.getenv("DOMAIN") or "http://localhost:8000"
+    result_page = os.getenv("PAYMENT_RESULT_URL") or "http://127.0.0.1:8000/app"
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -121,8 +121,8 @@ def create_invoice(
                 "quantity": 1,
             }],
             mode="payment",
-            success_url=f"{base_domain}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{base_domain}/payment-cancel",
+            success_url=f"{result_page}?status=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{result_page}?status=cancel",
             metadata={"invoice_id": str(db_invoice.id)},
             payment_intent_data={
                 "transfer_data": {

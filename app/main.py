@@ -14,6 +14,9 @@ from app.db.database import Base, engine
 from app.tasks.recurrence import start_scheduler
 from app.api.customer import router as customer_router
 
+from fastapi.staticfiles import StaticFiles
+
+
 security = HTTPBearer()
 app = FastAPI()
 
@@ -45,6 +48,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(webhook.router, tags=["Stripe Webhook"])
 app.include_router(webhook_router)
 app.include_router(customer_router)
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 # ─── Existing Protected Routes ───────────────────────────────────────────────
 app.include_router(

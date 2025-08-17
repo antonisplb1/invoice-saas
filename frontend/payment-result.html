@@ -1,0 +1,111 @@
+<!-- payment-result.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Payment Result</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --surface:#fff; --bg:#f8f9fa; --text:#212529;
+      --muted:#6c757d; --ok:#28a745; --warn:#dc3545; --primary:#007bff;
+    }
+    body { margin:0; background:var(--bg); font-family:system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; color:var(--text); }
+    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { background:var(--surface); border:1px solid #e5e7eb; border-radius:16px; padding:28px; max-width:560px; width:100%;
+            box-shadow:0 10px 20px rgba(0,0,0,.06); text-align:center; }
+    h1 { margin:0 0 8px; font-size:24px; }
+    p { margin:8px 0 18px; color:var(--muted); }
+    .badge { display:inline-block; padding:.35rem .6rem; border-radius:999px; font-weight:600; }
+    .badge.ok { background:rgba(40,167,69,.1); color:var(--ok); }
+    .badge.warn { background:rgba(220,53,69,.1); color:var(--warn); }
+    .muted { color:var(--muted); font-size:14px; }
+    .spinner { width:22px; height:22px; border:3px solid #e9ecef; border-top-color:var(--primary);
+               border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 12px;}
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="result-card">
+      <div class="spinner"></div>
+      <h1>Checking payment…</h1>
+      <p class="muted">Please wait a moment.</p>
+    </div>
+  </div>
+
+  <script>
+    // CONFIG: where your main app lives (the “Back to app” button)
+    const APP_HOME = "http://localhost:8000/app"; // change for production
+    const API_BASE = "http://localhost:8000";     // your API origin
+
+    const params = new URLSearchParams(window.location.search);
+    const status = (params.get('status') || '').toLowerCase();  // 'success' | 'cancel'
+    const sessionId = params.get('session_id');
+
+    const card = document.getElementById('result-card');
+
+    function setView({ title, body, badge, badgeClass, primaryCta }) {
+      card.innerHTML = `
+        ${badge ? `<div class="badge ${badgeClass}">${badge}</div>` : ''}
+        <h1>${title}</h1>
+        <p class="muted">${body}</p>
+        <div style="display:flex; gap:.5rem; justify-content:center; margin-top:10px;">
+          ${primaryCta || ''}
+        </div>
+      `;
+    }
+
+    // BASIC: no verification, just show a friendly message
+    if (!sessionId || status !== 'success') {
+      if (status === 'success') {
+        setView({
+          title: 'Payment successful',
+          body: 'Thank you! Your payment was completed.',
+          badge: 'Success', badgeClass: 'ok',
+        });
+      } else if (status === 'cancel') {
+        setView({
+          title: 'Payment canceled',
+          body: 'Your payment was canceled before completion.',
+          badge: 'Canceled', badgeClass: 'warn',
+        });
+      } else {
+        setView({
+          title: 'Payment status unknown',
+          body: 'We could not determine the outcome.',
+        });
+      }
+    } else {
+      // OPTIONAL (recommended): verify the Checkout Session without requiring login
+      // Implement GET /payments/checkout-session/{session_id} on your API (public)
+      fetch(`${API_BASE}/payments/checkout-session/${encodeURIComponent(sessionId)}`)
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => {
+          if ((data.payment_status || '').toLowerCase() === 'paid' ||
+              (data.status || '').toLowerCase() === 'complete') {
+            setView({
+              title: 'Payment successful',
+              body: 'Thank you! Your payment was completed.',
+              badge: 'Success', badgeClass: 'ok',
+            });
+          } else {
+            setView({
+              title: 'Payment processing',
+              body: 'Your payment is being finalized. You can return to the app.',
+              badge: 'Processing', badgeClass: 'ok',
+            });
+          }
+        })
+        .catch(() => {
+          // If the verify endpoint isn’t available, fall back to success
+          setView({
+            title: 'Payment successful',
+            body: 'Thank you! Your payment was completed. You may close this window',
+            badge: 'Success', badgeClass: 'ok',
+          });
+        });
+    }
+  </script>
+</body>
+</html>
