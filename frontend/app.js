@@ -1038,8 +1038,8 @@ async function editCustomerFlow(customer) {
   } finally {
     hideLoader();
   }
-
-  function handleStripeReturn() {
+}
+function handleStripeReturn() {
   const url = new URL(window.location.href);
   const paymentResult = url.searchParams.get('paymentResult'); // 'success' | 'cancel' | null
 
@@ -1055,5 +1055,4 @@ async function editCustomerFlow(customer) {
   url.searchParams.delete('paymentResult');
   url.searchParams.delete('session_id'); // safe to remove if present
   window.history.replaceState({}, '', url.pathname + (url.search ? `?${url.searchParams}` : '') + url.hash);
-}
 }
